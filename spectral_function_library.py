@@ -175,7 +175,7 @@ def plot_one_curve(
 #-------------------------------------------------------------------
 def plot_multi_curves(
     ax,
-    curve,
+    curves,
     xlabel="[Add x-label]",
     ylabel="[Add y-label]",
     title="[Add title]",
@@ -185,15 +185,15 @@ def plot_multi_curves(
     ms=None,  # symbol scaling factor
     labels=None
 ):
-    assert(curve.shape[1] == len(labels))
+    assert(curves.shape[1] == len(labels))
     #print("enter plot_multi_curves")
     #print("labels: ", labels)
     #print("curve shape[1]: ", curve.shape[1])
 
-    nb_curves = curve.shape[1]
+    nb_curves = curves.shape[1]
     for k in range(nb_curves):
         #print("label: ", labels[k])
-        ax.plot(curve, style, label=labels[k])
+        ax.plot(curves[:,k], style, label=labels[k])
         #ax.plot(curve, style, label=f"$gor_{k}$")
 
     ax.grid(True)
@@ -204,7 +204,7 @@ def plot_multi_curves(
     ax.set_title(title)
 
     if labels:
-        ax.legend(framealpha=0.5)
+        ax.legend(framealpha=0.5, fontsize=8)
 #-------------------------------------------------------------------
 def plot_data1(H_dict, eigval_dict, eigvec_dict, totvar, which_eig):
     N = list(H_dict.values())[0].shape[0]
