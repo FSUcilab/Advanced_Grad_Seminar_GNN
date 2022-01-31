@@ -115,3 +115,185 @@ def generate_eigenvectors_from_adjacency_matrix_1(G, N, seed):
     plt.tight_layout()
     plt.show()
 #----------------------------------------------------------
+def degree_matrix(A):
+    # Can return non-invertible matrices when graph is directed
+    return np.diag(np.sum(A, axis=0))
+
+def normalized_matrix(Amatrix, Dmatrix, type_norm):
+
+    if type_norm == "left":
+        Dinv = np.diag(1. / np.diag(Dmatrix)) # efficient, returns matrix
+        return Dinv @ Amatrix
+    elif type_norm == "symmetric":
+        Dinvsq = np.diag(1. / np.sqrt(np.diag(Dmatrix))) # efficient, returns matrix
+        return Dinvsq @ Amatrix @ Dinvsq
+    else: # no normalization
+        return Amatrix
+
+def linear_acyclic_chain(N, graph_type):
+    A = np.zeros([N,N])
+    for i in range(1, N):
+        A[i, i - 1] = 1
+    if graph_type == "undirected":
+        A = A + A.T
+    return A
+
+def tot_var(A, v):
+    """
+    Calculate the total variation: \sum_i (s[i]-s[j])^2
+    where s is a signal, which could be an eigenvector of $A$.
+    The function is inefficient but will work on general graphs
+    """
+    total_variat = 0
+    N = len(v)
+    for i in range(N):
+        for j in range(N):
+            if abs(A[i, j]) > 0.01:
+                total_variat += (v[i] - v[j]) ** 2
+    return total_variat
+#-------------------------------------------------------------------
+def plot_one_curve(
+    ax,
+    curve,
+    xlabel="[Add x-label]",
+    ylabel="[Add y-label]",
+    title="[Add title]",
+    style="-o",
+    color="black",
+    xlim=None,
+    ylim=None,
+    ms=None,  # symbol scaling factor
+    label=None
+):
+    ax.plot(curve, style, color=color)
+    ax.grid(True)
+    if xlim: ax.set_xlim(*xlim)
+    if ylim: ax.set_ylim(*ylim)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+#-------------------------------------------------------------------
+def plot_multi_curves(
+    ax,
+    curve,
+    xlabel="[Add x-label]",
+    ylabel="[Add y-label]",
+    title="[Add title]",
+    style="-o",
+    xlim=None,
+    ylim=None,
+    ms=None,  # symbol scaling factor
+    labels=None
+):
+    assert(curve.shape[1] == len(labels))
+    #print("enter plot_multi_curves")
+    #print("labels: ", labels)
+    #print("curve shape[1]: ", curve.shape[1])
+
+    nb_curves = curve.shape[1]
+    for k in range(nb_curves):
+        #print("label: ", labels[k])
+        ax.plot(curve, style, label=labels[k])
+        #ax.plot(curve, style, label=f"$gor_{k}$")
+
+    ax.grid(True)
+    if xlim: ax.set_xlim(*xlim)
+    if ylim: ax.set_ylim(*ylim)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+
+    if labels:
+        ax.legend(framealpha=0.5)
+#-------------------------------------------------------------------
+def plot_data1(H_dict, eigval_dict, eigvec_dict, totvar, which_eig):
+    N = list(H_dict.values())[0].shape[0]
+    nrows = 3
+    ncols = 3
+    # rows and cols are used to access axes array elements
+    row_eigf, row_eigv = 0, 1
+    cols_dict = {"none": 0, "left": 1, "symmetric": 2}
+    pos_none_eig = 2, 1
+    pos_none_tot_var = 2, 0
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 6))
+    #print("H_dict keys: ", list(H_dict.keys()))
+
+    for k, v in H_dict.items():
+        eigval_dict[k], eigvec_dict[k] = np.linalg.eig(v)
+        arg = np.argsort(eigval_dict[k])
+        eigval_dict[k] = eigval_dict[k][arg]
+        eigvec_dict[k] = eigvec_dict[k][:, arg]
+
+    # Loop over matrix types
+    for k in H_dict.keys():
+        # Eigenvectors 
+        nb_fcts = 5   # can be changed
+        ax = axes[row_eigf, cols_dict[k]]
+        plot_multi_curves(
+            ax,
+            eigvec_dict[k][:, 0:nb_fcts],
+            style="-o",
+            labels=[f"$\lambda_{i}$" for i in range(0,nb_fcts)],
+            title="Eigenfunctions",
+            xlabel="k",
+            ylabel="v_k",
+            ylim=[-0.2, 0.2]
+        )
+
+        # Eigenvalues
+        ax = axes[row_eigv, cols_dict[k]]
+        plot_one_curve(
+            ax,
+            eigval_dict[k],
+            style="-o",
+            xlabel="k",
+            title="Eigenvalues",
+            ylabel="$\lambda_k$",
+            ylim=[0, 5]
+        )
+
+    ax = axes[pos_none_eig]
+    ax.set_ylim(-0.2, 0.2)
+    ax.grid(True)
+    ax.set_title("Single Eigenvector, no normalization")
+
+    try:
+        eigvec = eigvec_dict["none"][:, which_eig]
+    except:
+        print(f"which_eig must be < N! Reset value to ${N-1}$")
+        which_eig = N - 1
+        eigvec = eigvec_dict["none"][:, which_eig]
+
+    plot_one_curve(
+        ax,
+        eigvec,
+        style="-o",
+        xlabel="k",
+        ylabel="v_k",
+        color="black",
+        label=f"$\lambda_{which_eig}$",
+    )
+
+    ax = axes[row_eigv, cols_dict["none"]]
+    ax.plot(which_eig, eigval_dict["none"][which_eig], "o", ms=10, color="red")
+    ax.set_title(f"Eigenvalues $\lambda_k$")
+
+    ax = axes[pos_none_tot_var]
+
+    plot_one_curve(ax, totvar, title="Total Variation, $L$, no normalization")
+    ax.plot(which_eig, totvar[which_eig], "o", ms=10, color="red")
+
+    for k in H_dict.keys():
+        ax = axes[0, cols_dict[k]]
+        ax.set_title("Normalization: " + k)
+        ax = axes[1, cols_dict[k]]
+        ax.set_title("Normalization: " + k)
+
+    plt.suptitle(
+        "Eigenvectors and eigenvalues for $L$ (left), $D^{-1}L$ (middle), $D^{-1/2}LD^{-1/2}$ (right)",
+        fontsize=16,
+    )
+
+    plt.tight_layout()
+#-------------------------------------------------------------------
