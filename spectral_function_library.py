@@ -118,7 +118,7 @@ def generate_eigenvectors_from_adjacency_matrix_1(G, N, seed):
 def degree_matrix(A):
     # Can return non-invertible matrices when graph is directed
     return np.diag(np.sum(A, axis=0))
-
+#--------------------------------------------------------------------------
 def normalized_matrix(Amatrix, Dmatrix, type_norm):
 
     if type_norm == "left":
@@ -129,7 +129,7 @@ def normalized_matrix(Amatrix, Dmatrix, type_norm):
         return Dinvsq @ Amatrix @ Dinvsq
     else: # no normalization
         return Amatrix
-
+#-------------------------------------------------------------------------
 def linear_acyclic_chain(N, graph_type):
     A = np.zeros([N,N])
     for i in range(1, N):
@@ -137,17 +137,28 @@ def linear_acyclic_chain(N, graph_type):
     if graph_type == "undirected":
         A = A + A.T
     return A
-
+#------------------------------------------------------------------------
 def tot_var(A, v):
     """
     Calculate the total variation: \sum_i (s[i]-s[j])^2
     where s is a signal, which could be an eigenvector of $A$.
-    The function is inefficient but will work on general graphs
+    The function is inefficient but will work on general graphs. 
+    
+    Parameters
+    ----------
+    A : Numpy array
+        Adjacency Matrix
+    v : List
+        Graph signal
+    
+    Returns
+    -------
+    A list with the total variation of the signal `v` for each eigenvalue.
     """
     total_variat = 0
     N = len(v)
     for i in range(N):
-        for j in range(N):
+        for j in range(i):
             if abs(A[i, j]) > 0.01:
                 total_variat += (v[i] - v[j]) ** 2
     return total_variat
@@ -165,6 +176,19 @@ def plot_one_curve(
     ms=None,  # symbol scaling factor
     label=None
 ):
+    """
+    Plots a single curve using matplotlib. 
+    
+    Parameters
+    ----------
+    ax : plot axis returned by subplots or gca()
+    curve: 1-D numpy array with the curve data:w
+    
+    
+    Returns
+    -------
+    No returns
+    """
     ax.plot(curve, style, color=color)
     ax.grid(True)
     if xlim: ax.set_xlim(*xlim)
@@ -185,6 +209,21 @@ def plot_multi_curves(
     ms=None,  # symbol scaling factor
     labels=None
 ):
+    """
+    Plots multiple curves using matplotlib. 
+    
+    Parameters
+    ----------
+    ax : plot axis returned by subplots or gca()
+    curves: 2-D numpy array
+        The first dimension is the number of points; the second
+        dimension holds the curve data values. 
+    
+    Returns
+    -------
+    No returns
+    """
+    
     assert(curves.shape[1] == len(labels))
     #print("enter plot_multi_curves")
     #print("labels: ", labels)
@@ -207,6 +246,30 @@ def plot_multi_curves(
         ax.legend(framealpha=0.5, fontsize=8)
 #-------------------------------------------------------------------
 def plot_data1(H_dict, eigval_dict, eigvec_dict, totvar, which_eig):
+    """
+    This function plots eigenvalues, eigenvectors, the total variation 
+    based on the Graph Laplacian, and a single eigenfunction corresponding 
+    to the eigenvalue `which_eig`.  
+    
+    Parameters
+    ---------
+    H_dict : dictionary 
+        Keys are normalization types ('none', 'left', 'symmetric'). 
+    eigenval_dict: dictionary with integer keys
+        Keys are the eigenvalue index. 
+        The eigenvalue spectrum is eigenval_dict[key][:]
+    eigvec_dict: dictionary 
+        Keys are the normalization types. 
+        The kth eigenfunction  eigenvec_dict[key][:, k]
+    totvar: list
+        Total variation $\sum_i A_{i,j} (s_i - s_j)^2$
+    which_eig: int
+        Display an eigenfunction corresponding to eigenvalue `which_eig`
+        
+    Returns
+    -------
+    There are no returns.
+    """
     N = list(H_dict.values())[0].shape[0]
     nrows = 3
     ncols = 3
