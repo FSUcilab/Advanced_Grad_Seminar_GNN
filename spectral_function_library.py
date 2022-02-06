@@ -199,6 +199,7 @@ def plot_one_curve(
 #-------------------------------------------------------------------
 def plot_multi_curves(
     ax,
+    x, 
     curves,
     xlabel="[Add x-label]",
     ylabel="[Add y-label]",
@@ -224,6 +225,7 @@ def plot_multi_curves(
     No returns
     """
     
+    print("gordon")
     assert(curves.shape[1] == len(labels))
     #print("enter plot_multi_curves")
     #print("labels: ", labels)
@@ -232,7 +234,7 @@ def plot_multi_curves(
     nb_curves = curves.shape[1]
     for k in range(nb_curves):
         #print("label: ", labels[k])
-        ax.plot(curves[:,k], style, label=labels[k])
+        ax.plot(x, curves[:,k], style, label=labels[k])
         #ax.plot(curve, style, label=f"$gor_{k}$")
 
     ax.grid(True)
