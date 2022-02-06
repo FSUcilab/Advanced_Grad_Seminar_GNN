@@ -121,7 +121,7 @@ def degree_matrix(A):
 #--------------------------------------------------------------------------
 def normalized_matrix(Amatrix, Dmatrix, type_norm):
 
-    if type_norm == "left":
+    if type_norm == "left" or type_norm == 'stochastic':
         Dinv = np.diag(1. / np.diag(Dmatrix)) # efficient, returns matrix
         return Dinv @ Amatrix
     elif type_norm == "symmetric":
