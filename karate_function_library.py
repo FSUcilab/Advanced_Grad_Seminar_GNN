@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
+import torch
 
 def drawOriginalGraph(G):
     labels = [0 if G.nodes[idx]['club'] == 'Mr. Hi' else 1 for idx in range(len(G.nodes))]
@@ -16,7 +17,9 @@ def add_gaussian_features(G, means=[0.,.5], std=[1., 1.], nb_features=16):
     # I am operating outside this mechanism
 
     nodes = np.asarray(G.nodes)
+    edges = np.asarray(G.edges)
     nb_nodes = nodes.shape[0]
+    nb_edges = edges.shape[0]
     node_metadata = np.random.randn(nb_nodes, nb_features)
     labels = np.asarray([0 if G.nodes[node]['club'] == 'Mr. Hi' else 1 for node in list(G.nodes)])
     mean = np.where(labels == 0, means[0], means[1])
@@ -24,9 +27,24 @@ def add_gaussian_features(G, means=[0.,.5], std=[1., 1.], nb_features=16):
     node_metadata = mean.reshape(-1, 1) + std.reshape(-1,1) * node_metadata
 
     # Add labels and metadata to the networkx graph `G`
-    G.node_metadata = node_metadata
-    G.labels = labels
+    G.node_metadata = torch.tensor(node_metadata, requires_grad=False).float()
+    G.labels = torch.tensor(labels, requires_grad=False).float()
     G.nb_nodes = nb_nodes
+    G.nb_edges = nb_edges
+    G.nb_node_features = nb_features
+    G.nb_edge_features = 0
+    G.nb_graphfeatures = 0
+
+#--------------------------------------------------------------------------
+def update_associated_matrices(G):
+    # wasteful of memory but ok for small graphs (N < 1000)
+    G.A = torch.tensor(nx.linalg.graphmatrix.adjacency_matrix(G).toarray()).detach().float()
+    G.I = torch.eye(G.nb_nodes)
+    #G.L = G.D - G.A  # Laplacian
+    G.An = G.I + G.A
+    G.D = torch.sum(G.An, dim=0)  # degree matrix
+    Dinvsq = torch.diag(np.sqrt(1.0 / G.D))  # array
+    G.An = torch.tensor(Dinvsq @ G.An @ Dinvsq).float() # symmetric normalization
 
 #----------------------------------------------------------------------
 def plot_metadata(G):
@@ -43,3 +61,4 @@ def plot_metadata(G):
         plt.legend()
 
 #----------------------------------------------------------------------
+#--------------------------------------------------------------------------
