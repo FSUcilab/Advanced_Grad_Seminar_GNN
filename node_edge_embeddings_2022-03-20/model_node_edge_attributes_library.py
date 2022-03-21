@@ -5,6 +5,8 @@ import numpy as np
 
 def set_weight(n_in, n_out):
     W = torch.zeros(n_in, n_out, dtype=torch.float, requires_grad=True)
+    # Check out Xavier Initialization
+    # https://towardsdatascience.com/weight-initialization-in-neural-networks-a-journey-from-the-basics-to-kaiming-954fb9b47c79
     rmax = 1. / n_in ** 0.5
     torch.nn.init.uniform_(W, -rmax, rmax)
     W = torch.nn.Parameter(W)
@@ -58,7 +60,7 @@ class GNNNodesEdges(torch.nn.Module):
         return X, E
         
     def update_edges(self, X, E):
-        return E @ self.W0 + (self.B @ X) @ self.W1
+        return (self.B @ X) @ self.W1 + E @ self.W0
         # Ignore edge information
         # return (self.B @ X) @ self.W1
     
@@ -98,9 +100,13 @@ class myGCN(torch.nn.Module):
             Layout output
         """
         X, E = self.gcn1(X0, E0)
+        self.node_features = X
+        self.edge_features = E
+
         #X, E = self.gcn1(X, E)  # apply GNN twice (does not work)
         X = self.linear1(X)
         X = self.sigmoid(self.linear2(X))
+
         return X
 
     #-----------------------------------------------------------------
@@ -147,6 +153,8 @@ def new_train(G, model, mask, loss_fn, optimizer, nb_epochs):
     E0 = torch.tensor(G.edge_features).float()
     labels = torch.tensor(G.labels, requires_grad=False)
     losses = []
+    node_embeddings = []
+    edge_embeddings = []
     accuracy_count = defaultdict(list)
 
     for epoch in range(nb_epochs):
@@ -158,6 +166,10 @@ def new_train(G, model, mask, loss_fn, optimizer, nb_epochs):
             break
         losses.append(loss.item())
 
+        # Waste of memory
+        node_embeddings.append(model.node_features)
+        edge_embeddings.append(model.edge_features)
+
         with torch.no_grad():  # should not be necessary
             loss.backward(retain_graph=False)
             optimizer.step()
@@ -165,7 +177,7 @@ def new_train(G, model, mask, loss_fn, optimizer, nb_epochs):
         model.eval()
         predict(model, G, mask, accuracy_count)
 
-    return losses, accuracy_count
+    return losses, accuracy_count, node_embeddings, edge_embeddings
 
     #--------------------------------------------------------------
 

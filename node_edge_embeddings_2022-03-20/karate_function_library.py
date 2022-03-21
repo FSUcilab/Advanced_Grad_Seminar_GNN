@@ -67,7 +67,7 @@ def update_associated_matrices(G):
     G.D = torch.sum(G.An, dim=0)  # degree matrix (list)
     G.Dinvsq = torch.diag(np.sqrt(1.0 / G.D))  # matrix
     G.Dinv = torch.diag(G.D)  # matrix
-    G.An = torch.tensor(G.Dinvsq @ G.An @ G.Dinvsq).float() # symmetric normalization
+    G.An = torch.tensor(G.Dinvsq @ G.An @ G.Dinvsq).detach().float() # symmetric normalization
 
     # A sparse matrix representation is not really necessary since pre-multiplying by Dinv
     # is equivalent to dividing the ith row by Dinv[i,i]. But just for generality in 
@@ -86,15 +86,17 @@ def update_associated_matrices(G):
     G.B = torch.sparse_coo_tensor(indexB, VB, [G.nb_edges, G.nb_nodes])
     # Swap indexes 0 and 1  (same as G.B.transpose(1,0). How to check this?)
     G.Btransp = G.B.transpose(0, 1) 
-    print("G.B: ", G.B.shape, "G.B.transp: ", G.Btransp.shape)
+    print("G.B: ", G.B.shape)
+    print("G.B.transp: ", G.Btransp.shape)
 
 #----------------------------------------------------------------------
 def plot_metadata(G):
         indices = np.asarray(range(G.nb_nodes))
-        indices_0 = indices[G.labels < 0.5] # labels are floats
+        indices_0 = indices[G.labels < 0.5] # labels are floats, 0. or 1.
         indices_1 = indices[G.labels > 0.5]
         features_0 = G.node_features[indices_0, :].reshape(-1)
         features_1 = G.node_features[indices_1, :].reshape(-1)
+        # Notice the argument "histtype"
         plt.hist(features_0.numpy(), color='green', histtype='step', label='label 0')
         plt.hist(features_1.numpy(), color='blue', histtype='step', label='label 1');
         plt.title("Features as normal distributions")
