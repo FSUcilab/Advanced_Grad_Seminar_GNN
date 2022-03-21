@@ -1,18 +1,7 @@
 import torch
-import torch.sparse as tsp
 from torch import tensor
-import torch_sparse as t_sp
-#from torchsummary import summary
-import tqdm.auto
-from tqdm import tqdm
-import os
 from collections import defaultdict
-import spectral_function_library as speclib
 import numpy as np
-#import matplotlib.pyplot as plt
-#import networkx as nx
-#import karate_function_library as karate
-#import model_node_edge_attributes_library as model_edge
 
 def set_weight(n_in, n_out):
     W = torch.zeros(n_in, n_out, dtype=torch.float, requires_grad=True)
@@ -35,16 +24,19 @@ class GNNNodesEdges(torch.nn.Module):
         self.Btransp = G.Btransp
         self.DinvCoo = G.DinvCoo
    
+        # One question: why not simply use self.relu1 for all three relu nodes? 
         self.relu1 = torch.nn.ReLU();
         self.relu2 = torch.nn.ReLU();
         self.relu3 = torch.nn.ReLU()
         
+        # Note that I could choose to make W0 and W2 the same to save memory. 
+        # Whether that would help or not would have to be tested. 
         self.W0 = set_weight(self.f, self.f)
         self.W1 = set_weight(self.d, self.f)
         self.W2 = set_weight(self.f, self.f)
         self.W3 = set_weight(self.f, self.d)
+        # Alpha is a scalar variable
         self.alpha = set_weight(1, 1)
-        
                 
     def forward(self, X0, E0):
         """
@@ -60,9 +52,9 @@ class GNNNodesEdges(torch.nn.Module):
             
         Embeddings at the zero'th iteration are set to the features
         """
-        E = self.relu1(self.update_edges(X0, E0))
+        E  = self.relu1(self.update_edges(X0, E0))
         EX = self.relu2(self.edges_to_nodes(X0, E))
-        X = self.relu3(self.update_nodes(X0, EX))
+        X  = self.relu3(self.update_nodes(X0, EX))
         return X, E
         
     def update_edges(self, X, E):

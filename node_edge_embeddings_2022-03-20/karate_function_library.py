@@ -25,7 +25,7 @@ def add_gaussian_features(G, node_means=[0.,.5], node_stds=[1., 1.], edge_means=
     node_metadata = np.random.randn(nb_nodes, nb_node_features)
     edge_metadata = np.random.randn(nb_edges, nb_edge_features)
 
-    # Labels are only defined on nodes (not on edges)
+    # Labels defined on nodes and edges
     n_labels = np.asarray([0 if G.nodes[node]['club'] == 'Mr. Hi' else 1 for node in list(G.nodes)])
     e_labels = np.random.randint(0, 2, nb_edges) # random 0 and 1
 
@@ -35,7 +35,7 @@ def add_gaussian_features(G, node_means=[0.,.5], node_stds=[1., 1.], edge_means=
     node_metadata = n_means.reshape(-1, 1) + n_stds.reshape(-1,1) * node_metadata
 
     # Edge metadata
-    # Need edge labels to decide which features to use. So create some edge labels
+    # Need edge labels to decide which features to use. 
     e_means = np.where(e_labels == 0, edge_means[0], edge_means[1])
     e_stds = np.where(e_labels == 0, edge_stds[0], edge_stds[1])
     edge_metadata = e_means.reshape(-1, 1) + e_stds.reshape(-1,1) * edge_metadata
@@ -45,6 +45,8 @@ def add_gaussian_features(G, node_means=[0.,.5], node_stds=[1., 1.], edge_means=
     G.edge_features = torch.tensor(edge_metadata, requires_grad=False).float()
 
     # Add labels to the networkx graph `G`
+    # requires_grad=False since we never differentiate with respect to the labels 
+    #  (Labels do not depend on the unknown weights)
     G.n_labels = G.labels = torch.tensor(n_labels, requires_grad=False).float()
     G.e_labels = torch.tensor(e_labels, requires_grad=False).float()
     G.nb_nodes = nb_nodes
@@ -56,29 +58,35 @@ def add_gaussian_features(G, node_means=[0.,.5], node_stds=[1., 1.], edge_means=
 #--------------------------------------------------------------------------
 def update_associated_matrices(G):
     # wasteful of memory but ok for small graphs (N < 1000)
+    # detach: remove the automatic gradient calculation from torch.tensor then make into a float array. 
+    #         detaching just in case a gradient calculation is attached to the matrix
     G.A = torch.tensor(nx.linalg.graphmatrix.adjacency_matrix(G).toarray()).detach().float()
     G.I = torch.eye(G.nb_nodes)
     #G.L = G.D - G.A  # Laplacian
-    G.An = G.I + G.A
+    G.An = G.I + G.A  # Note the use of self-loops (I) (Follows Kips and Welling)
     G.D = torch.sum(G.An, dim=0)  # degree matrix (list)
     G.Dinvsq = torch.diag(np.sqrt(1.0 / G.D))  # matrix
     G.Dinv = torch.diag(G.D)  # matrix
     G.An = torch.tensor(G.Dinvsq @ G.An @ G.Dinvsq).float() # symmetric normalization
 
+    # A sparse matrix representation is not really necessary since pre-multiplying by Dinv
+    # is equivalent to dividing the ith row by Dinv[i,i]. But just for generality in 
+    # case Dinv is replaced by a different matrix
     # Store sparse representaiton of G.Dinv (diagonal matrix)
-    indexDinv = torch.tensor([list(range(0, G.nb_nodes)), list(range(0, G.nb_nodes))])
+    indexDinv = torch.tensor([list(range(0, G.nb_nodes)), list(range(0, G.nb_nodes))])  
+    # 1-D  array
     VDinv = torch.diag(G.Dinv)
     G.DinvCoo = torch.sparse_coo_tensor(indexDinv, VDinv, [G.nb_nodes, G.nb_nodes])
     
 
     # Create B matrix: Ne x N in coo format
+    # The B matrix allows conversion between a matrix of size N and a matrix of size Ne
     indexB = torch.tensor(np.asarray(G.edges).T)
     VB = torch.ones(G.nb_edges)
     G.B = torch.sparse_coo_tensor(indexB, VB, [G.nb_edges, G.nb_nodes])
-    G.Btransp = G.B.transpose(0, 1)
+    # Swap indexes 0 and 1  (same as G.B.transpose(1,0). How to check this?)
+    G.Btransp = G.B.transpose(0, 1) 
     print("G.B: ", G.B.shape, "G.B.transp: ", G.Btransp.shape)
-    #print("GBT: ", G.Btransp)
-    #print(G.edges)
 
 #----------------------------------------------------------------------
 def plot_metadata(G):
