@@ -16,7 +16,7 @@ def set_weight(n_in, n_out):
 class GNNNodesEdges(torch.nn.Module):
     # the graph G will contain the adjacency matrix A, and the node-edge matrix B and Btransp. 
     # Saving B and Btransp is inefficient but convenient
-    def __init__(self, G):
+    def __init__(self, G, ignore_edges=False):
         super(GNNNodesEdges, self).__init__()
 
         self.G = G
@@ -25,6 +25,7 @@ class GNNNodesEdges(torch.nn.Module):
         self.B = G.B
         self.Btransp = G.Btransp
         self.DinvCoo = G.DinvCoo
+        self.ignore_edges = ignore_edges
    
         # One question: why not simply use self.relu1 for all three relu nodes? 
         self.relu1 = torch.nn.ReLU();
@@ -60,9 +61,10 @@ class GNNNodesEdges(torch.nn.Module):
         return X, E
         
     def update_edges(self, X, E):
-        return (self.B @ X) @ self.W1 + E @ self.W0
-        # Ignore edge information
-        # return (self.B @ X) @ self.W1
+        if self.ignore_edges:
+            return (self.B @ X) @ self.W1
+        else:
+            return (self.B @ X) @ self.W1 + E @ self.W0
     
     def edges_to_nodes(self, X, E):
         # normalized by Dinv
@@ -75,12 +77,12 @@ class GNNNodesEdges(torch.nn.Module):
     #----------------------------------------------------------------------
 
 class myGCN(torch.nn.Module):
-    def __init__(self, G):
+    def __init__(self, G, ignore_edges=False):
         super(myGCN, self).__init__()
         self.G = G
         
         # self.gcn1 = GCNConv(G, n_in, n_in//4)
-        self.gcn1 = GNNNodesEdges(G)
+        self.gcn1 = GNNNodesEdges(G, ignore_edges)
 
         # self.gcn1 = GCNConv(G, n_in, n_in//2)
         # self.gcn2 = GCNConv(G, n_in//2, n_in//4)
@@ -100,8 +102,10 @@ class myGCN(torch.nn.Module):
             Layout output
         """
         X, E = self.gcn1(X0, E0)
-        self.node_features = X
-        self.edge_features = E
+
+        # Save norm of node/edge embeddings on original graph, same dims as X0, E0
+        self.G.node_embeddings_list.append(X.norm())
+        self.G.edge_embeddings_list.append(E.norm())
 
         #X, E = self.gcn1(X, E)  # apply GNN twice (does not work)
         X = self.linear1(X)
@@ -156,19 +160,18 @@ def new_train(G, model, mask, loss_fn, optimizer, nb_epochs):
     node_embeddings = []
     edge_embeddings = []
     accuracy_count = defaultdict(list)
+    G.node_embeddings_list = []
+    G.edge_embeddings_list = []
 
     for epoch in range(nb_epochs):
         model.train()
         optimizer.zero_grad()
+        print("X0.norm: ", X0.norm())
         pred = model(X0, E0)
         loss = loss_fn(pred, labels)
         if np.isnan(loss.detach()):
             break
         losses.append(loss.item())
-
-        # Waste of memory
-        node_embeddings.append(model.node_features)
-        edge_embeddings.append(model.edge_features)
 
         with torch.no_grad():  # should not be necessary
             loss.backward(retain_graph=False)
