@@ -7,7 +7,7 @@ import torch.sparse as tsp
 def drawOriginalGraph(G):
     labels = [0 if G.nodes[idx]['club'] == 'Mr. Hi' else 1 for idx in range(len(G.nodes))]
     colors = ['yellow'if labels[idx] == 0 else 'orange' for idx in range(len(G.nodes))]
-    pos = nx.drawing.layout.spring_layout(G)
+    pos = nx.drawing.spring_layout(G)
     nx.drawing.draw(G,pos=pos,with_labels=True,node_color=colors)
 
 #----------------------------------------------------------------------
